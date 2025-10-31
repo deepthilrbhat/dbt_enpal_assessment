@@ -1,0 +1,122 @@
+version: 2
+
+models:
+  # =========================================================
+  # int_deal_attributes
+  # =========================================================
+  - name: int_deal_attributes
+    description: >
+      Combines multiple aspects of deal data — creation time, ownership changes,
+      and loss reasons — into a single, enriched view.  
+      Serves as the primary source of deal-level attributes for downstream mart models.
+    meta:
+      owner: data_analytics_team
+      pii: false
+      tags: ['intermediate', 'deals']
+
+    columns:
+      - name: deal_id
+        description: "Unique identifier for each deal."
+        tests:
+          - not_null
+          - unique
+
+      - name: deal_creation_time
+        description: "Timestamp when the deal was created in the CRM."
+        tests:
+          - not_null
+
+      - name: deal_owner_change_time
+        description: "Timestamp when the most recent owner change occurred for the deal."
+
+      - name: deal_current_owner_id
+        description: "User ID of the current deal owner."
+        tests:
+          - relationships:
+              to: ref('stg_users')
+              field: user_id
+
+      - name: deal_previous_owner_id
+        description: "User ID of the previous deal owner, if ownership has changed."
+        tests:
+          - relationships:
+              to: ref('stg_users')
+              field: user_id
+              where: "deal_previous_owner_id is not null"
+
+      - name: is_deal_lost
+        description: "Flag indicating if the deal was lost ('Yes' or 'No')."
+        tests:
+          - accepted_values:
+              values: ['Yes', 'No']
+
+      - name: lost_reason
+        description: "Reason why the deal was lost, if applicable."
+        tests:
+          - relationships:
+              to: ref('int_lost_reason_mapping')
+              field: lost_reason_label
+              where: "lost_reason is not null"
+
+  # =========================================================
+  # int_funnel_events
+  # =========================================================
+  - name: int_funnel_events
+    description: >
+      Intermediate model combining funnel stage and activity events into a single unified
+      event stream. Each record represents a deal entering a specific funnel step
+      (either stage- or activity-based), with derived ordering and time-in-stage metrics.
+    meta:
+      owner: sales_analytics
+      team: revops
+      tags: ['intermediate', 'funnel']
+    columns:
+      - name: deal_id
+        description: Unique identifier for the deal associated with this funnel event.
+        tests:
+          - not_null
+      - name: step_id
+        description: Numeric identifier for the funnel step, mapped from either a stage or activity.
+        tests:
+          - not_null
+      - name: step_name
+        description: Human-readable name of the funnel step.
+        tests:
+          - not_null
+      - name: step_order
+        description: >
+          Sequential order of the funnel step in the sales process.
+          Used for ordering funnel progression.
+        tests:
+          - not_null
+
+      - name: source_type
+        description: >
+          Indicates whether the event came from a 'stage' or 'activity' source.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['stage', 'activity']
+      - name: stage_entered_time
+        description: Timestamp when the deal entered this funnel step.
+        tests:
+          - not_null
+      - name: days_in_stage
+        description: >
+          Number of days the deal remained in this stage before progressing to the next one.
+          Calculated only for 'stage' source_type.
+        tests: []
+
+      - name: month
+        description: >
+          Month of the funnel event (first day of the month).
+          Derived from the stage_entered_time.
+        tests:
+          - not_null
+
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - deal_id
+            - step_order
+            - stage_entered_time

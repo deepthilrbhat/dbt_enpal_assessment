@@ -1,0 +1,154 @@
+version: 2
+
+models:
+  # =========================================================
+  # stg_activity_type
+  # =========================================================
+  - name: stg_activity_type
+    description: >
+      Staging model for activity type metadata from the CRM.
+      Each row represents a type of activity (e.g., call, email, meeting)
+      that can be associated with deals or users.
+    columns:
+      - name: activity_type_id
+        description: "Unique identifier for each activity type."
+        tests:
+          - not_null
+          - unique
+      - name: activity_type_name
+        description: "Descriptive name of the activity type."
+        tests:
+          - not_null
+      - name: is_active
+        description: "Indicates whether the activity type is active in the CRM."
+        tests:
+          - accepted_values:
+              values: [true, false]
+      - name: type_key
+        description: "Underlying CRM type key used for mapping to funnel steps."
+
+  # =========================================================
+  # stg_activity
+  # =========================================================
+  - name: stg_activity
+    description: >
+      Staging model for CRM activities performed by users related to deals.
+      Each row corresponds to a single logged activity (e.g., call, meeting, email)
+      along with assigned user, deal, and completion status.
+    columns:
+      - name: activity_id
+        description: "Unique identifier of the activity."
+        tests:
+          - not_null
+      - name: activity_type
+        description: "Type of the activity (e.g., 'call', 'email')."
+        tests:
+          - not_null
+      - name: user_id
+        description: "Identifier of the user who performed or owns the activity."
+        tests:
+          - relationships:
+              to: ref('stg_users')
+              field: user_id
+      - name: deal_id
+        description: "Identifier of the deal associated with the activity."
+        tests: []
+          
+      - name: is_done
+        description: "Boolean flag indicating if the activity is completed."
+        tests:
+          - accepted_values:
+              values: [true, false]
+      - name: due_date
+        description: "Timestamp when the activity is due to be completed."
+
+  # =========================================================
+  # stg_deal_changes
+  # =========================================================
+  - name: stg_deal_changes
+    description: >
+      Staging model capturing changes made to deals in the CRM,
+      including field updates and timestamps. Used to derive deal lifecycle metrics.
+    columns:
+      - name: deal_id
+        description: "Unique identifier of the deal that was changed."
+        tests:
+          - not_null
+      - name: change_time
+        description: "Timestamp when the field change occurred."
+        tests:
+          - not_null
+      - name: changed_field_key
+        description: "Name of the field that was updated (e.g., 'stage', 'owner')."
+        tests:
+          - not_null
+      - name: new_value
+        description: "The new value assigned to the changed field."
+
+  # =========================================================
+  #  stg_fields
+  # =========================================================
+  - name: stg_fields
+    description: >
+      Staging model representing CRM field metadata.
+      Contains details about custom fields, keys, and potential values.
+    columns:
+      - name: field_id
+        description: "Unique identifier for the field definition."
+        tests:
+          - not_null
+          - unique
+      - name: field_key
+        description: "System key of the field (e.g., 'lost_reason')."
+        tests:
+          - not_null
+      - name: field_name
+        description: "Human-readable name of the field."
+      - name: field_value_options
+        description: >
+          JSON array containing possible field values and their metadata,
+          used for lookup tables like 'lost_reason_mapping'.
+
+  # =========================================================
+  # stg_stages
+  # =========================================================
+  - name: stg_stages
+    description: >
+      Staging model containing deal stages from the CRM.
+      Used to define the sales funnel structure and ordering.
+    columns:
+      - name: stage_id
+        description: "Unique identifier for the stage."
+        tests:
+          - not_null
+          - unique
+      - name: stage_name
+        description: "Name of the deal stage (e.g., 'Prospecting', 'Negotiation')."
+        tests:
+          - not_null
+
+  # =========================================================
+  #  stg_users
+  # =========================================================
+  - name: stg_users
+    description: >
+      Staging model for CRM user data, including identifiers, names, and contact info.
+      Provides consistent user keys for joining with deals and activities.
+    columns:
+      - name: user_id
+        description: "Unique identifier for the user."
+        tests:
+          - not_null
+          - unique
+      - name: user_name
+        description: "Full name of the CRM user."
+        meta:
+          pii: true
+        tests:
+          - not_null
+      - name: user_email
+        description: "Email address of the user."
+        meta:
+          pii: true
+      - name: modified_at
+        description: "Timestamp when the user record was last modified in the CRM."
