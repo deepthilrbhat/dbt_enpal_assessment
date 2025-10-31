@@ -34,3 +34,10 @@ yarn.lock
 .env
 .env.*
 *.log
+
+# Python environments
+.venv/
+venv/
+dbt-env/
+__pycache__/
+*.pyc
