@@ -1,0 +1,36 @@
+# ------------------------------
+# dbt build artifacts
+# ------------------------------
+target/
+dbt_packages/
+logs/
+
+# ------------------------------
+# Python virtual environments
+# ------------------------------
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# ------------------------------
+# VS Code and system files
+# ------------------------------
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ------------------------------
+# Node / JS (if using dbt-power-user or packages)
+# ------------------------------
+node_modules/
+package-lock.json
+yarn.lock
+
+# ------------------------------
+# Environment / credentials
+# ------------------------------
+.env
+.env.*
+*.log
