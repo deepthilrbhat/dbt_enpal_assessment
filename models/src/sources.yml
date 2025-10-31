@@ -1,0 +1,78 @@
+version: 2
+
+sources:
+  - name: public
+    schema: public                       # your Postgres schema containing CSV-loaded tables
+    description: "Raw tables loaded from CSV files for Enpal assessment"
+    tables:
+      - name: activity
+        description: "CRM activity data"
+        columns:
+          - name: activity_id
+            description: "Unique identifier for the activity"
+          - name: type
+            description: "Type of the activity"
+          - name: assigned_to_user
+            description: "User assigned to this activity"
+          - name: deal_id
+            description: "Foreign key to deals"
+          - name: done
+            description: "Activity completion flag"
+          - name: due_to
+            description: "Due date or time for the activity"
+
+      - name: activity_types
+        description: "Types and status of activities"
+        columns:
+          - name: id
+            description: "Activity type ID"
+          - name: name
+            description: "Activity type name"
+          - name: active
+            description: "Whether the type is active"
+          - name: type
+            description: "Foreign key to type definition"
+
+      - name: deal_changes
+        description: "Records of deal field changes"
+        columns:
+          - name: deal_id
+            description: "Primary key for deal"
+          - name: change_time
+            description: "Timestamp of change"
+          - name: changed_field_key
+            description: "Field key that was changed"
+          - name: new_value
+            description: "New value of the changed field"
+
+      - name: fields
+        description: "Metadata describing CRM fields"
+        columns:
+          - name: id
+            description: "Field identifier"
+          - name: field_key
+            description: "Technical key of the field"
+          - name: name
+            description: "Display name of the field"
+          - name: field_value_options
+            description: "Available options for the field"
+
+      - name: stages
+        description: "Deal stages"
+        columns:
+          - name: stage_id
+            description: "Stage identifier"
+          - name: stage_name
+            description: "Name of the deal stage"
+
+      - name: users
+        description: "CRM user table"
+        columns:
+          - name: id
+            description: "User ID"
+          - name: name
+            description: "User full name"
+          - name: email
+            description: "User email address"
+          - name: modified
+            description: "Timestamp of last modification"

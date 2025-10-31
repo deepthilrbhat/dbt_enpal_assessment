@@ -1,0 +1,220 @@
+version: 2
+
+models:
+  # =========================================================
+  # FACT TABLE — FACT DEAL Funnel Curated
+  # =========================================================
+  - name: fct_deals_funnel_curated
+    description: >
+      Curated fact table representing the complete lifecycle of deals
+      through funnel stages. Combines activities like calls for each deal
+    meta:
+      owner: data_analytics_team
+      pii: false
+      tags: ['funnel', 'mart']
+
+    columns:
+      - name: deal_id
+        description: "Unique identifier for each deal tracked through the funnel."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('int_deal_attributes')
+              field: deal_id
+
+      - name: deal_creation_time
+        description: "Timestamp when the deal was created in the CRM."
+        tests:
+          - not_null
+
+      - name: deal_current_owner_id
+        description: "User ID of the current owner of the deal."
+        tests:
+          - relationships:
+              to: ref('stg_users')
+              field: user_id
+
+      - name: deal_current_owner_name
+        description: "Name of the current owner of the deal."
+
+      - name: deal_previous_owner_id
+        description: "User ID of the previous owner, if ownership changed."
+        tests:
+          - relationships:
+              to: ref('stg_users')
+              field: user_id
+              where: "deal_previous_owner_id is not null"
+
+      - name: deal_previous_owner_name
+        description: "Name of the previous owner of the deal, if applicable."
+
+      - name: deal_owner_change_time
+        description: "Timestamp when ownership of the deal last changed."
+
+      - name: stage_id
+        description: "Sequential ID representing the funnel stage order."
+        tests:
+          - not_null
+
+      - name: stage_name
+        description: "Descriptive name of the funnel stage."
+        tests:
+          - not_null
+
+      - name: stage_entered_time
+        description: "Timestamp when the deal entered this funnel stage."
+        tests:
+          - not_null
+
+      - name: days_in_stage
+        description: "Number of days the deal remained in this funnel stage."
+        tests: []
+          
+
+      - name: is_deal_lost
+        description: "Boolean indicating whether the deal was lost"
+        tests:
+          - accepted_values:
+              values: ['Yes', 'No']
+
+      - name: lost_reason
+        description: "Reason the deal was lost, if applicable."
+        tests:
+          - relationships:
+              to: ref('lost_reason_mapping')
+              field: lost_reason_label
+              where: "lost_reason is not null"
+
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - deal_id
+            - stage_id
+            - stage_entered_time
+
+  # =========================================================
+  # DIMENSION TABLE — LOST REASON MAPPING
+  # =========================================================
+  - name: lost_reason_mapping
+    description: >
+      Lookup table mapping internal lost reason IDs to human-readable labels.
+      Extracted from CRM metadata JSON ('stg_fields') where `field_key = 'lost_reason'.
+      Used to enrich deal loss analyses in mart models.
+    meta:
+      owner: data_analytics_team
+      pii: false
+      tags: ['lookup', 'mart']
+
+    columns:
+      - name: lost_reason_id
+        description: "Numeric identifier representing a specific lost reason."
+        tests:
+          - not_null
+          - unique
+
+      - name: lost_reason_label
+        description: "Human-readable label of the lost reason (e.g. 'Budget constraints')."
+        tests:
+          - not_null
+
+  # =========================================================
+  # DIMENSION TABLE — FUNNEL STEP MAPPING
+  # =========================================================
+  - name: funnel_step_mapping
+    description: >
+      Combined mapping of both CRM deal stages and activity steps that
+      together form the unified sales funnel definition.  
+      Enables alignment between stage-based and activity-based funnel views.
+    meta:
+      owner: data_analytics_team
+      pii: false
+      tags: ['lookup', 'mart']
+
+    columns:
+      - name: step_id
+        description: "Unique numeric identifier for each funnel step (stage or activity)."
+        tests:
+          - not_null
+          - unique
+
+      - name: step_name
+        description: "Descriptive name of the funnel step."
+
+      - name: step_order
+        description: >
+          Order of the step within the funnel sequence.
+          Can be numeric or hierarchical (e.g. '1','2','2.1','3', '3.1')."
+        tests:
+          - not_null
+
+      - name: source_type
+        description: "Type of source for the step ('stage' or 'activity')."
+        tests:
+          - accepted_values:
+              values: ['stage', 'activity']
+
+      - name: is_active
+        description: "Boolean flag indicating if the step is active in the CRM. Note: currently includes only activities with 'Active' status"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+  # =========================================================
+  # REPORTING TABLE — Deals funnel monthly summary
+  # =========================================================
+
+  - name: rpt_deals_funnel_monthly
+    description: >
+      Monthly aggregated funnel reporting table showing how many deals entered each funnel
+      step per month. Each row represents one funnel stage in one calendar month.
+    meta:
+      owner: sales_analytics
+      team: revops
+      tags: ['funnel', 'reporting']
+    columns:
+      - name: month
+        description: >
+          Month when the deal entered the funnel step, formatted as Mon-YYYY (e.g., Jan-2025).
+        tests:
+          - not_null
+      - name: kpi_name
+        description: >
+          Human-readable name of the funnel step (e.g., "Qualified", "Demo Scheduled").
+        tests:
+          - not_null
+      - name: funnel_step
+        description: >
+          Numeric order of the funnel step as defined in the funnel sequence.
+        tests:
+          - not_null
+      - name: deals_count
+        description: >
+          Number of distinct deals that entered this funnel step during the given month.
+        tests:
+          - not_null
+  # =========================================================
+  #  dim_users
+  # =========================================================
+  - name: dim_users
+    description: >
+      Staging model for CRM user data, including identifiers, names, and contact info.
+      Provides consistent user keys for joining with deals and activities.
+    columns:
+      - name: user_id
+        description: "Unique identifier for the user."
+        tests:
+          - not_null
+          - unique
+      - name: user_name
+        description: "Full name of the CRM user."
+        meta:
+          pii: true
+        tests:
+          - not_null
+      - name: user_email
+        description: "Email address of the user."
+        meta:
+          pii: true
+      - name: modified_at
+        description: "Timestamp when the user record was last modified in the CRM."
